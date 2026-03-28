@@ -21,21 +21,37 @@ async function refreshBalanceFromFirestore(user) {
     }
 }
 
-async function checkSession() {
-    const token = localStorage.getItem('token');
+async function getAuthToken() {
+    if (typeof window.fbGetToken === 'function') {
+        return window.fbGetToken();
+    }
+    return null;
+}
+
+async function loadUserProfile() {
+    const token = await getAuthToken();
     if (!token) return setAuthState(null);
-    
     try {
         const res = await fetch('/api/me', { headers: { 'Authorization': `Bearer ${token}` } });
         const data = await res.json();
         if (data.success) {
-            setAuthState({ token, ...data.user });
+            setAuthState(data.user);
         } else {
-            localStorage.removeItem('token');
             setAuthState(null);
         }
-    } catch(e) { console.error(e); }
+    } catch (e) {
+        console.error(e);
+        setAuthState(null);
+    }
 }
+
+window.onFirebaseAuthChanged = function (fbUser) {
+    if (fbUser) {
+        loadUserProfile();
+    } else {
+        setAuthState(null);
+    }
+};
 
 function setAuthState(user) {
     walletListenUnsub?.();
@@ -88,8 +104,10 @@ function setAuthState(user) {
     }
 }
 
-function logout() {
-    localStorage.removeItem('token');
+async function logout() {
+    try {
+        if (typeof window.fbSignOut === 'function') await window.fbSignOut();
+    } catch (e) { console.error(e); }
     setAuthState(null);
     toast('Logged out successfully', 'succ');
 }
@@ -114,8 +132,8 @@ function isValidEmailClient(s) {
 
 document.getElementById('signup-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const username = document.getElementById('su-username').value;
-    const email = document.getElementById('su-email').value;
+    const username = document.getElementById('su-username').value.trim();
+    const email = document.getElementById('su-email').value.trim();
     const password = document.getElementById('su-password').value;
     const confirmPassword = document.getElementById('su-confirm-password').value;
 
@@ -125,47 +143,88 @@ document.getElementById('signup-form')?.addEventListener('submit', async (e) => 
     if (password !== confirmPassword) {
         return toast('Passwords do not match.', 'err');
     }
+    if (password.length < 8) {
+        return toast('Password must be at least 8 characters.', 'err');
+    }
     if (!document.getElementById('su-terms').checked) {
         return toast('You must agree to the Terms and Conditions.', 'err');
     }
 
+    const btn = e.target.querySelector('button[type="submit"]');
+    if (btn) { btn.disabled = true; btn.textContent = 'Creating account…'; }
+
     try {
-        const res = await fetch('/api/signup', {
+        const valRes = await fetch('/api/validate-signup', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, email, password })
+            body: JSON.stringify({ username, email }),
         });
-        const data = await res.json();
-        if(data.success) {
-            localStorage.setItem('token', data.token);
-            setAuthState({ token: data.token, ...data.user });
+        const valData = await valRes.json();
+        if (!valData.success) {
+            toast(valData.message, 'err');
+            if (btn) { btn.disabled = false; btn.textContent = 'Sign Up'; }
+            return;
+        }
+
+        const cred = await window.fbSignUp(email, password);
+        await window.fbUpdateProfile(cred.user, { displayName: username });
+
+        const idToken = await cred.user.getIdToken();
+        const regRes = await fetch('/api/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+            body: JSON.stringify({ username }),
+        });
+        const regData = await regRes.json();
+        if (regData.success) {
+            setAuthState(regData.user);
             closeAuthModals();
             toast('Account created successfully!', 'succ');
-        } else { toast(data.message, 'err'); }
-    } catch(e) {
-        console.error(e);
-        toast('Critical error encountered signing up. Please check the console.', 'err');
+        } else {
+            toast(regData.message || 'Could not complete registration.', 'err');
+        }
+    } catch (err) {
+        console.error(err);
+        const code = err?.code || '';
+        if (code === 'auth/email-already-in-use') {
+            toast('This email is already registered. Please log in instead.', 'err');
+        } else if (code === 'auth/weak-password') {
+            toast('Password is too weak. Use at least 6 characters.', 'err');
+        } else if (code === 'auth/invalid-email') {
+            toast('Invalid email address.', 'err');
+        } else {
+            toast('Sign-up failed: ' + (err.message || 'Unknown error'), 'err');
+        }
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'Sign Up'; }
     }
 });
 
 document.getElementById('login-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const email = document.getElementById('li-email').value;
+    const email = document.getElementById('li-email').value.trim();
     const password = document.getElementById('li-password').value;
+
+    const btn = e.target.querySelector('button[type="submit"]');
+    if (btn) { btn.disabled = true; btn.textContent = 'Logging in…'; }
+
     try {
-        const res = await fetch('/api/login', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password })
-        });
-        const data = await res.json();
-        if(data.success) {
-            localStorage.setItem('token', data.token);
-            setAuthState({ token: data.token, ...data.user });
-            closeAuthModals();
-            toast('Logged in successfully!', 'succ');
-        } else { toast(data.message, 'err'); }
+        await window.fbSignIn(email, password);
+        closeAuthModals();
+        toast('Logged in successfully!', 'succ');
     } catch (err) {
         console.error(err);
-        toast('Network error logging in. Please try again.', 'err');
+        const code = err?.code || '';
+        if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') {
+            toast('Invalid email or password.', 'err');
+        } else if (code === 'auth/too-many-requests') {
+            toast('Too many failed attempts. Try again later or reset your password.', 'err');
+        } else if (code === 'auth/invalid-email') {
+            toast('Invalid email address.', 'err');
+        } else {
+            toast('Login failed: ' + (err.message || 'Unknown error'), 'err');
+        }
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'Log In'; }
     }
 });
 
@@ -281,8 +340,13 @@ async function confirmCheckoutAndOpenPaystack() {
         toast('Invalid amount.', 'err');
         return;
     }
-    if (!currentUser?.token) {
+    if (!currentUser) {
         toast('Please log in to fund your wallet.', 'err');
+        return openLoginModal();
+    }
+    const authToken = await getAuthToken();
+    if (!authToken) {
+        toast('Session expired. Please log in again.', 'err');
         return openLoginModal();
     }
     const proto = window.location.protocol || '';
@@ -297,12 +361,10 @@ async function confirmCheckoutAndOpenPaystack() {
     if (btn) btn.disabled = true;
     try {
         toast('Redirecting to Paystack…', 'succ');
-        // Same-origin only: Express must serve this page and /api (no Live Server on another port).
         const res = await fetch('/api/paystack/initialize', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'Authorization': `Bearer ${authToken}` },
             body: JSON.stringify({
-                token: currentUser.token,
                 amountGHS: pendingTopUpGHS,
             }),
         });
@@ -495,8 +557,14 @@ document.getElementById('order-form').addEventListener('submit', async function(
     const qty = parseInt(qtyInp.value);
     const costUsd = parseFloat(((qty / 1000) * selSvc.price).toFixed(2));
 
-    if (!currentUser || !currentUser.token) {
+    if (!currentUser) {
         toast('Please log in to place an order.', 'err');
+        return openLoginModal();
+    }
+
+    const authToken = await getAuthToken();
+    if (!authToken) {
+        toast('Session expired. Please log in again.', 'err');
         return openLoginModal();
     }
 
@@ -512,8 +580,9 @@ document.getElementById('order-form').addEventListener('submit', async function(
 
     try {
         const res = await fetch('/api/order', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token: currentUser.token, serviceId: selSvc.id, link, quantity: qty, costUsd })
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+            body: JSON.stringify({ serviceId: selSvc.id, link, quantity: qty }),
         });
         const data = await res.json();
         
@@ -585,9 +654,30 @@ function showHowItWorksView() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// Initialize System
+async function forgotPassword() {
+    const email = prompt('Enter your email address to reset your password:');
+    if (!email) return;
+    if (!isValidEmailClient(email)) {
+        return toast('Enter a valid email address.', 'err');
+    }
+    try {
+        await window.fbResetPassword(email);
+        toast('Password reset email sent! Check your inbox.', 'succ');
+        closeAuthModals();
+    } catch (err) {
+        const code = err?.code || '';
+        if (code === 'auth/user-not-found') {
+            toast('No account found with that email.', 'err');
+        } else {
+            toast('Could not send reset email. Try again later.', 'err');
+        }
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     consumeWalletTopupQuery();
-    checkSession();
     renderTabs();
+    if (typeof window.fbCheckPendingAuth === 'function') {
+        window.fbCheckPendingAuth();
+    }
 });

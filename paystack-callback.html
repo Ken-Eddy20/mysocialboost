@@ -16,22 +16,45 @@
         <h2 style="font-family: var(--font-h); color: var(--cyan);">Completing payment…</h2>
         <p>Please wait while we confirm your transaction with Paystack.</p>
     </div>
-    <script>
-        (async function () {
-            const params = new URLSearchParams(window.location.search);
-            const reference = params.get('reference') || params.get('trxref');
-            if (!reference) {
-                window.location.replace('/?wallet_topup=fail&msg=' + encodeURIComponent('Missing payment reference from Paystack.'));
-                return;
-            }
-            const token = localStorage.getItem('token');
-            const body = { reference };
-            if (token) body.token = token;
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js';
+        import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js';
+
+        const app = initializeApp({
+            apiKey: 'AIzaSyAjQ2REuJCfGo0-VQ1cO_X7fxrT2-GEWYQ',
+            authDomain: 'mysocialboost-a23f2.firebaseapp.com',
+            projectId: 'mysocialboost-a23f2',
+            storageBucket: 'mysocialboost-a23f2.firebasestorage.app',
+            messagingSenderId: '454490141951',
+            appId: '1:454490141951:web:776c4d9ccd789bbae248ca',
+        });
+        const auth = getAuth(app);
+
+        const params = new URLSearchParams(window.location.search);
+        const reference = params.get('reference') || params.get('trxref');
+
+        if (!reference) {
+            window.location.replace('/?wallet_topup=fail&msg=' + encodeURIComponent('Missing payment reference from Paystack.'));
+        } else {
+            const waitForAuth = () => new Promise((resolve) => {
+                let done = false;
+                const unsub = onAuthStateChanged(auth, (user) => {
+                    if (!done) { done = true; unsub(); resolve(user); }
+                });
+                setTimeout(() => { if (!done) { done = true; unsub(); resolve(null); } }, 5000);
+            });
+
             try {
+                const fbUser = await waitForAuth();
+                const idToken = fbUser ? await fbUser.getIdToken() : null;
+
+                const headers = { 'Content-Type': 'application/json', Accept: 'application/json' };
+                if (idToken) headers['Authorization'] = `Bearer ${idToken}`;
+
                 const res = await fetch('/api/add-funds', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-                    body: JSON.stringify(body),
+                    headers,
+                    body: JSON.stringify({ reference }),
                 });
                 const data = await res.json().catch(() => ({}));
                 if (data.success) {
@@ -46,7 +69,7 @@
                     '/?wallet_topup=fail&msg=' + encodeURIComponent('Network error. If you were charged, contact support with your Paystack reference.')
                 );
             }
-        })();
+        }
     </script>
 </body>
 </html>

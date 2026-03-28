@@ -5,12 +5,13 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
-import bcrypt from 'bcryptjs';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import { getAuth as getAdminAuth } from 'firebase-admin/auth';
 import { verifyPaystackTransaction, initializePaystackTransaction } from './lib/paystack.js';
 import {
     syncUserToFirestore,
+    getUserFromFirestore,
     logTransaction,
     ghsToUsdRate,
     ensureFreshGhsUsdRate,
@@ -22,10 +23,7 @@ import { forwardOrderToProvider } from './lib/jap.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '.env') });
 
-const BCRYPT_ROUNDS = 10;
-
 // ── Server-side price catalog (id → price per 1000) ──────────────────
-import { createRequire } from 'module';
 const SERVICE_PRICES = buildServicePriceMap();
 
 function buildServicePriceMap() {
@@ -176,19 +174,19 @@ function callbackPublicOrigin(req) {
     return `${proto}://${host}`.replace(/\/$/, '');
 }
 
-function resolveUserForTopup(db, token, reference) {
+function resolveUserForTopup(db, uid, reference) {
     const pend = db.pendingPaystackTopups?.[reference];
     const pendUserId = pend?.userId != null ? String(pend.userId) : null;
 
-    if (token) {
-        const i = db.users.findIndex((u) => u.token === token);
+    if (uid) {
+        const i = db.users.findIndex((u) => u.id === uid);
         if (i !== -1) {
-            if (pendUserId && String(db.users[i].id) !== pendUserId) return -1;
+            if (pendUserId && uid !== pendUserId) return -1;
             return i;
         }
     }
     if (pendUserId) {
-        return db.users.findIndex((u) => String(u.id) === pendUserId);
+        return db.users.findIndex((u) => u.id === pendUserId);
     }
     return -1;
 }
@@ -291,121 +289,148 @@ function isValidUsername(s) {
     return typeof s === 'string' && /^[a-zA-Z0-9_.-]{3,30}$/.test(s);
 }
 
-function isStrongPassword(s) {
-    return typeof s === 'string' && s.length >= 8 && s.length <= 128;
+// ── Firebase Auth token verification ─────────────────────────────────
+async function verifyFirebaseToken(req) {
+    const hdr = req.headers.authorization;
+    if (!hdr || !hdr.startsWith('Bearer ')) return null;
+    const idToken = hdr.slice(7);
+    if (!idToken || idToken.length < 20) return null;
+    try {
+        return await getAdminAuth().verifyIdToken(idToken);
+    } catch (e) {
+        return null;
+    }
 }
 
-// ── AUTH ROUTES ──────────────────────────────────────────────────────
-app.post('/api/signup', authLimiter, (req, res) => {
+async function restoreUserFromFirestore(uid, email) {
+    const fsUser = await getUserFromFirestore(uid);
+    if (!fsUser) return null;
+    fsUser.email = fsUser.email || (email || '').toLowerCase();
+    return fsUser;
+}
+
+// ── AUTH ROUTES (Firebase Auth) ──────────────────────────────────────
+
+app.post('/api/validate-signup', authLimiter, async (req, res) => {
+    try {
+        const { username, email } = req.body || {};
+        if (!isValidUsername(username)) {
+            return res.json({ success: false, message: 'Username must be 3-30 characters (letters, numbers, _ . -)' });
+        }
+        if (!isValidEmail(email)) {
+            return res.json({ success: false, message: 'Enter a valid email address.' });
+        }
+        if (isDisposableEmail(email)) {
+            return res.json({ success: false, message: 'Disposable/temporary email addresses are not allowed. Use a real email.' });
+        }
+        const db = getDB();
+        const emailLower = email.toLowerCase();
+        const usernameLower = username.toLowerCase();
+        if (db.users.find((u) => u.email?.toLowerCase() === emailLower)) {
+            return res.json({ success: false, message: 'Email already registered.' });
+        }
+        if (db.users.find((u) => u.username?.toLowerCase() === usernameLower)) {
+            return res.json({ success: false, message: 'Username already taken.' });
+        }
+        res.json({ success: true });
+    } catch (e) {
+        console.error('[validate-signup]', e);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+});
+
+app.post('/api/register', authLimiter, (req, res) => {
     runSignupSerial(async () => {
         try {
-            const { username, email, password } = req.body || {};
+            const decoded = await verifyFirebaseToken(req);
+            if (!decoded) return res.json({ success: false, message: 'Not authenticated' });
+
+            const { username } = req.body || {};
             if (!isValidUsername(username)) {
                 return res.json({ success: false, message: 'Username must be 3-30 characters (letters, numbers, _ . -)' });
             }
-            if (!isValidEmail(email)) {
-                return res.json({ success: false, message: 'Enter a valid email address.' });
-            }
-            if (isDisposableEmail(email)) {
-                return res.json({ success: false, message: 'Disposable/temporary email addresses are not allowed. Use a real email.' });
-            }
-            if (!isStrongPassword(password)) {
-                return res.json({ success: false, message: 'Password must be at least 8 characters.' });
-            }
+
+            const uid = decoded.uid;
+            const email = (decoded.email || '').toLowerCase();
+
             let db = getDB();
-            const emailLower = email.toLowerCase();
-            const usernameLower = username.toLowerCase();
-            if (db.users.find((u) => u.email.toLowerCase() === emailLower || u.username.toLowerCase() === usernameLower)) {
-                return res.json({ success: false, message: 'Email or Username already exists' });
+            const existing = db.users.find((u) => u.id === uid);
+            if (existing) {
+                return res.json({ success: true, user: userPublicView(existing) });
             }
-            const hashed = await bcrypt.hash(password, BCRYPT_ROUNDS);
-            const token = crypto.randomBytes(32).toString('hex');
-            const newUser = { id: Date.now().toString(), username, email: emailLower, password: hashed, balance: 0.0, token };
+            if (db.users.find((u) => u.username?.toLowerCase() === username.toLowerCase())) {
+                return res.json({ success: false, message: 'Username already taken.' });
+            }
+            if (email && db.users.find((u) => u.email?.toLowerCase() === email && u.id !== uid)) {
+                return res.json({ success: false, message: 'Email already registered under a different account.' });
+            }
+
+            const newUser = { id: uid, username, email, balance: 0.0 };
             db = getDB();
-            if (db.users.find((u) => u.email.toLowerCase() === emailLower || u.username.toLowerCase() === usernameLower)) {
-                return res.json({ success: false, message: 'Email or Username already exists' });
+            if (db.users.find((u) => u.id === uid)) {
+                return res.json({ success: true, user: userPublicView(db.users.find((u) => u.id === uid)) });
             }
             db.users.push(newUser);
             saveDB(db);
+
             const fsOk = await syncUserToFirestore(newUser);
-            if (!fsOk) {
-                console.warn(`[signup] Firestore skipped for ${newUser.email}`);
-            }
+            if (!fsOk) console.warn(`[register] Firestore sync skipped for ${email}`);
             await ensureFreshGhsUsdRate();
-            res.json({
-                success: true,
-                token,
-                user: userPublicView(newUser),
-                firestoreSynced: fsOk,
-            });
+            res.json({ success: true, user: userPublicView(newUser) });
         } catch (e) {
-            console.error('[signup]', e);
+            console.error('[register]', e);
             if (!res.headersSent) res.status(500).json({ success: false, message: 'Server error' });
         }
     });
 });
 
-app.post('/api/login', authLimiter, async (req, res) => {
+app.get('/api/me', async (req, res) => {
     try {
-        const { email, password } = req.body || {};
-        if (!email || !password) {
-            return res.json({ success: false, message: 'Email and password are required.' });
-        }
-        const db = getDB();
-        const user = db.users.find((u) => u.email.toLowerCase() === email.toLowerCase());
+        const decoded = await verifyFirebaseToken(req);
+        if (!decoded) return res.json({ success: false, message: 'Not authenticated' });
+
+        let db = getDB();
+        let user = db.users.find((u) => u.id === decoded.uid);
+
         if (!user) {
-            return res.json({ success: false, message: 'Invalid credentials' });
-        }
-        const isOldPlaintext = !user.password.startsWith('$2a$') && !user.password.startsWith('$2b$');
-        let match = false;
-        if (isOldPlaintext) {
-            match = user.password === password;
-            if (match) {
-                user.password = await bcrypt.hash(password, BCRYPT_ROUNDS);
-                saveDB(db);
+            user = await restoreUserFromFirestore(decoded.uid, decoded.email);
+            if (user) {
+                db = getDB();
+                if (!db.users.find((u) => u.id === decoded.uid)) {
+                    db.users.push(user);
+                    saveDB(db);
+                    console.log(`[me] Restored user ${decoded.uid} from Firestore`);
+                }
             }
-        } else {
-            match = await bcrypt.compare(password, user.password);
         }
-        if (match) {
-            res.json({
-                success: true,
-                token: user.token,
-                user: userPublicView(user),
-            });
+
+        if (user) {
+            await syncUserToFirestore(user);
+            res.json({ success: true, user: userPublicView(user) });
         } else {
-            res.json({ success: false, message: 'Invalid credentials' });
+            res.json({ success: false, message: 'User not registered. Please complete sign-up.' });
         }
     } catch (e) {
-        console.error('[login]', e);
+        console.error('[me]', e);
         res.status(500).json({ success: false, message: 'Server error' });
-    }
-});
-
-app.get('/api/me', async (req, res) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token || token.length < 16) return res.json({ success: false, message: 'Not authenticated' });
-    const user = getDB().users.find((u) => u.token === token);
-    if (user) {
-        await syncUserToFirestore(user);
-        res.json({ success: true, user: userPublicView(user) });
-    } else {
-        res.json({ success: false, message: 'Not authenticated' });
     }
 });
 
 // ── Paystack checkout ────────────────────────────────────────────────
 app.post('/api/paystack/initialize', paymentLimiter, async (req, res) => {
     try {
-        const { token, amountGHS } = req.body;
+        const decoded = await verifyFirebaseToken(req);
+        if (!decoded) return res.json({ success: false, message: 'Unauthorized' });
+
+        const { amountGHS } = req.body;
         const amt = Number(amountGHS);
         if (!Number.isFinite(amt) || amt < 10 || amt > 50000) {
             return res.json({ success: false, message: 'Enter a valid amount (GHS 10 – 50,000).' });
         }
         const db = getDB();
-        const user = db.users.find((u) => u.token === token);
+        const user = db.users.find((u) => u.id === decoded.uid);
         if (!user) {
-            return res.json({ success: false, message: 'Unauthorized' });
+            return res.json({ success: false, message: 'User not found. Please complete sign-up.' });
         }
         const reference = 'TOPUP_' + Date.now() + '_' + crypto.randomBytes(4).toString('hex');
         const callbackUrl = `${callbackPublicOrigin(req)}/paystack-callback.html`;
@@ -435,14 +460,17 @@ app.post('/api/paystack/initialize', paymentLimiter, async (req, res) => {
 app.post('/api/add-funds', paymentLimiter, (req, res) => {
     runAddFundsSerial(async () => {
         try {
-            const { token, reference } = req.body;
+            const { reference } = req.body;
             if (!reference || typeof reference !== 'string' || reference.length > 100) {
                 res.json({ success: false, message: 'Missing payment reference' });
                 return;
             }
 
+            const decoded = await verifyFirebaseToken(req);
+            const uid = decoded?.uid || null;
+
             let db = getDB();
-            let userIndex = resolveUserForTopup(db, token, reference);
+            let userIndex = resolveUserForTopup(db, uid, reference);
             if (userIndex === -1) {
                 res.json({
                     success: false,
@@ -473,7 +501,7 @@ app.post('/api/add-funds', paymentLimiter, (req, res) => {
 
             const payData = verify.data;
             db = getDB();
-            const userIndex2 = resolveUserForTopup(db, token, reference);
+            const userIndex2 = resolveUserForTopup(db, uid, reference);
             if (userIndex2 === -1) {
                 res.json({ success: false, message: 'Unauthorized' });
                 return;
@@ -533,12 +561,14 @@ app.post('/api/add-funds', paymentLimiter, (req, res) => {
 app.post('/api/order', (req, res) => {
     runOrderSerial(async () => {
         try {
-            const { token, serviceId, link, quantity } = req.body;
-
-            if (!token || typeof token !== 'string' || token.length < 16) {
+            const decoded = await verifyFirebaseToken(req);
+            if (!decoded) {
                 res.json({ success: false, message: 'Unauthorized' });
                 return;
             }
+
+            const { serviceId, link, quantity } = req.body;
+            const uid = decoded.uid;
 
             const qty = parseInt(quantity, 10);
             if (!serviceId || typeof serviceId !== 'string') {
@@ -560,11 +590,10 @@ app.post('/api/order', (req, res) => {
                 return;
             }
 
-            // First balance check — fresh read
             let db = getDB();
-            let userIndex = db.users.findIndex((u) => u.token === token);
+            let userIndex = db.users.findIndex((u) => u.id === uid);
             if (userIndex === -1) {
-                res.json({ success: false, message: 'Unauthorized' });
+                res.json({ success: false, message: 'User not found. Please complete sign-up.' });
                 return;
             }
 
@@ -579,9 +608,8 @@ app.post('/api/order', (req, res) => {
                 return;
             }
 
-            // Second balance check — re-read DB right before debit to prevent race conditions
             db = getDB();
-            userIndex = db.users.findIndex((u) => u.token === token);
+            userIndex = db.users.findIndex((u) => u.id === uid);
             if (userIndex === -1) {
                 res.json({ success: false, message: 'Unauthorized' });
                 return;
@@ -597,16 +625,14 @@ app.post('/api/order', (req, res) => {
                 return;
             }
 
-            // Debit wallet
             user.balance = parseFloat((freshBalance - trueCost).toFixed(2));
             if (user.balance < 0) user.balance = 0;
             saveDB(db);
 
             const jap = await forwardOrderToProvider({ serviceId, link, quantity: qty, costUsd: trueCost });
             if (!jap.ok) {
-                // Restore balance on provider failure — re-read to avoid stale overwrites
                 const dbRestore = getDB();
-                const restoreIndex = dbRestore.users.findIndex((u) => u.token === token);
+                const restoreIndex = dbRestore.users.findIndex((u) => u.id === uid);
                 if (restoreIndex !== -1) {
                     dbRestore.users[restoreIndex].balance = parseFloat(
                         (Number(dbRestore.users[restoreIndex].balance) + trueCost).toFixed(2)

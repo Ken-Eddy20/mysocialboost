@@ -60,7 +60,8 @@ class AuthModals extends HTMLElement {
                         </div>
                     </div>
                     <button type="submit" class="btn btn-primary" style="width:100%">Log In</button>
-                    <p style="text-align:center; margin-top:15px; font-size:0.9rem; color:var(--muted);">Don't have an account? <a href="javascript:void(0)" onclick="openSignupModal()" style="color:var(--cyan);">Sign Up</a></p>
+                    <p style="text-align:center; margin-top:10px; font-size:0.85rem;"><a href="javascript:void(0)" onclick="forgotPassword()" style="color:var(--cyan);">Forgot your password?</a></p>
+                    <p style="text-align:center; margin-top:8px; font-size:0.9rem; color:var(--muted);">Don't have an account? <a href="javascript:void(0)" onclick="openSignupModal()" style="color:var(--cyan);">Sign Up</a></p>
                 </form>
             </div>
         </div>
