@@ -210,9 +210,82 @@ function saveDB(data) {
 }
 
 // ── Validation helpers ───────────────────────────────────────────────
+const STRICT_EMAIL_RE = /^[a-zA-Z0-9](?:[a-zA-Z0-9._%+\-]*[a-zA-Z0-9])?@[a-zA-Z0-9](?:[a-zA-Z0-9\-]*[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9\-]*[a-zA-Z0-9])?)*\.[a-zA-Z]{2,12}$/;
+
 function isValidEmail(s) {
-    return typeof s === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s) && s.length <= 254;
+    if (typeof s !== 'string' || s.length > 254) return false;
+    if (!STRICT_EMAIL_RE.test(s)) return false;
+    const local = s.split('@')[0];
+    if (local.length < 2) return false;
+    if (/^\d+$/.test(local)) return false;
+    if (s.includes('..')) return false;
+    return true;
 }
+
+function isDisposableEmail(email) {
+    const domain = (email.split('@')[1] || '').toLowerCase();
+    return DISPOSABLE_DOMAINS.has(domain);
+}
+
+const DISPOSABLE_DOMAINS = new Set([
+    'tempmail.com', 'temp-mail.org', 'temp-mail.io', 'tempmailo.com',
+    'guerrillamail.com', 'guerrillamail.net', 'guerrillamail.org', 'guerrillamailblock.com', 'grr.la', 'sharklasers.com',
+    'mailinator.com', 'mailinator.net', 'mailinator2.com',
+    'yopmail.com', 'yopmail.fr', 'yopmail.net',
+    'throwaway.email', 'throwaway.com',
+    '10minutemail.com', '10minutemail.net', '10minemail.com',
+    'dispostable.com', 'disposableemailaddresses.emailmiser.com',
+    'maildrop.cc', 'maildrop.ml',
+    'fakeinbox.com', 'fakemail.net', 'fakemail.fr',
+    'trashmail.com', 'trashmail.me', 'trashmail.net', 'trashmail.org',
+    'mohmal.com', 'mohmal.im',
+    'getnada.com', 'getnada.cc',
+    'emailondeck.com',
+    'mailnesia.com',
+    'tempinbox.com',
+    'mytemp.email',
+    'tempr.email',
+    'discard.email',
+    'mailsac.com',
+    'harakirimail.com',
+    'spamgourmet.com',
+    'tmail.ws',
+    'mailcatch.com',
+    'meltmail.com',
+    'jetable.org',
+    'incognitomail.org', 'incognitomail.com',
+    'mintemail.com',
+    'tempail.com',
+    'burnermail.io',
+    'crazymailing.com',
+    'mailnull.com',
+    'spamfree24.org',
+    'boun.cr',
+    'mailexpire.com',
+    'tempomail.fr',
+    'tmpmail.net', 'tmpmail.org',
+    'emailfake.com',
+    'generator.email',
+    'inboxbear.com',
+    'safetymail.info',
+    'mailtemp.info',
+    'receiveee.com',
+    'tempmailer.com',
+    'emailtemporanee.com',
+    'mail-temporaire.fr',
+    'ephemail.net',
+    'filzmail.com',
+    'trash-mail.com',
+    'bugmenot.com',
+    'nwldx.com',
+    'dropmail.me',
+    'instantemailaddress.com',
+    'emailisvalid.com',
+    'emailable.rocks',
+    'anonymmail.net',
+    'anonbox.net',
+    'wegwerfmail.de', 'wegwerfmail.net',
+]);
 
 function isValidUsername(s) {
     return typeof s === 'string' && /^[a-zA-Z0-9_.-]{3,30}$/.test(s);
@@ -232,6 +305,9 @@ app.post('/api/signup', authLimiter, (req, res) => {
             }
             if (!isValidEmail(email)) {
                 return res.json({ success: false, message: 'Enter a valid email address.' });
+            }
+            if (isDisposableEmail(email)) {
+                return res.json({ success: false, message: 'Disposable/temporary email addresses are not allowed. Use a real email.' });
             }
             if (!isStrongPassword(password)) {
                 return res.json({ success: false, message: 'Password must be at least 8 characters.' });

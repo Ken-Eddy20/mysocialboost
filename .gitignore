@@ -1,9 +1,33 @@
+# Dependencies
 node_modules/
+
+# Environment / secrets
 .env
+.env.local
+.env.production
+.env.development
 *.local
 serviceAccount.json
 serviceAccountKey.json
 **/serviceAccount*.json
+
+# App data (contains user credentials & payment refs)
 database.json
 jap-id-assignment.json
 jap-services-filtered.json
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Build output
+dist/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/

@@ -102,13 +102,26 @@ function closeAuthModals() {
     document.getElementById('login-modal').classList.remove('open');
 }
 
+const STRICT_EMAIL_RE = /^[a-zA-Z0-9](?:[a-zA-Z0-9._%+\-]*[a-zA-Z0-9])?@[a-zA-Z0-9](?:[a-zA-Z0-9\-]*[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9\-]*[a-zA-Z0-9])?)*\.[a-zA-Z]{2,12}$/;
+function isValidEmailClient(s) {
+    if (typeof s !== 'string' || s.length > 254) return false;
+    if (!STRICT_EMAIL_RE.test(s)) return false;
+    if (s.split('@')[0].length < 2) return false;
+    if (/^\d+$/.test(s.split('@')[0])) return false;
+    if (s.includes('..')) return false;
+    return true;
+}
+
 document.getElementById('signup-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const username = document.getElementById('su-username').value;
     const email = document.getElementById('su-email').value;
     const password = document.getElementById('su-password').value;
     const confirmPassword = document.getElementById('su-confirm-password').value;
-    
+
+    if (!isValidEmailClient(email)) {
+        return toast('Enter a valid email address (e.g. you@gmail.com).', 'err');
+    }
     if (password !== confirmPassword) {
         return toast('Passwords do not match.', 'err');
     }
