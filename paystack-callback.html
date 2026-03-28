@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Completing payment…</title>
+    <link rel="stylesheet" href="/css/style.css" />
+    <style>
+        body { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+        .cb-box { text-align: center; max-width: 400px; }
+        .cb-box p { color: var(--muted); margin-top: 12px; }
+    </style>
+</head>
+<body>
+    <div class="cb-box">
+        <h2 style="font-family: var(--font-h); color: var(--cyan);">Completing payment…</h2>
+        <p>Please wait while we confirm your transaction with Paystack.</p>
+    </div>
+    <script>
+        (async function () {
+            const params = new URLSearchParams(window.location.search);
+            const reference = params.get('reference') || params.get('trxref');
+            if (!reference) {
+                window.location.replace('/?wallet_topup=fail&msg=' + encodeURIComponent('Missing payment reference from Paystack.'));
+                return;
+            }
+            const token = localStorage.getItem('token');
+            const body = { reference };
+            if (token) body.token = token;
+            try {
+                const res = await fetch('/api/add-funds', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                    body: JSON.stringify(body),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (data.success) {
+                    window.location.replace('/?wallet_topup=success');
+                } else {
+                    window.location.replace(
+                        '/?wallet_topup=fail&msg=' + encodeURIComponent(data.message || 'Could not confirm payment.')
+                    );
+                }
+            } catch (e) {
+                window.location.replace(
+                    '/?wallet_topup=fail&msg=' + encodeURIComponent('Network error. If you were charged, contact support with your Paystack reference.')
+                );
+            }
+        })();
+    </script>
+</body>
+</html>

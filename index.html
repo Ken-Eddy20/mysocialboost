@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MySocialBoost - Premium Growth Panel</title>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@700;800&display=swap" rel="stylesheet">
+    <!-- CSS -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="toasts"></div>
+    
+    <app-navbar></app-navbar>
+    <app-hero></app-hero>
+    <app-services></app-services>
+    <app-how-it-works></app-how-it-works>
+    <app-payment></app-payment>
+    <app-dashboard></app-dashboard>
+    <app-footer></app-footer>
+    <app-modal></app-modal>
+    <app-auth></app-auth>
+    <app-terms></app-terms>
+    
+    <!-- Firebase (ES module; must run before app scripts that rely on window.firebaseApp) -->
+    <script type="module" src="js/firebase-init.js"></script>
+    <script type="module" src="js/firestore-wallet.js"></script>
+
+    <!-- Config and Data (defer keeps order after Firebase module) -->
+    <script src="js/data.js" defer></script>
+
+    <!-- View Components -->
+    <script src="js/components/Navbar.js" defer></script>
+    <script src="js/components/Hero.js" defer></script>
+    <script src="js/components/ServicesSection.js" defer></script>
+    <script src="js/components/HowItWorks.js" defer></script>
+    <script src="js/components/Payment.js" defer></script>
+    <script src="js/components/Dashboard.js" defer></script>
+    <script src="js/components/Footer.js" defer></script>
+    <script src="js/components/Modal.js" defer></script>
+    <script src="js/components/Auth.js" defer></script>
+    <script src="js/components/Terms.js" defer></script>
+
+    <!-- Entry Logic -->
+    <script src="js/main.js" defer></script>
+</body>
+</html>

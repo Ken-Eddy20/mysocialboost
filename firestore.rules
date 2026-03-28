@@ -1,0 +1,23 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /users/{userId} {
+      allow read: if false;
+      allow write: if false;
+    }
+
+    // Client reads wallet balance for the live listener (listenToWallet).
+    // Writes are blocked; only the Admin SDK (server) can update balances.
+    // Tighten to `request.auth.uid == userId` after adding Firebase Auth.
+    match /wallets/{userId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /transactions/{id} {
+      allow read: if false;
+      allow write: if false;
+    }
+  }
+}
