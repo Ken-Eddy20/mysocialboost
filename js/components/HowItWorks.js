@@ -71,7 +71,7 @@ class HowItWorks extends HTMLElement {
 
             <div class="how-info-grid">
                 <div class="how-info-card">
-                    <div class="how-info-icon-wrap"><span class="how-info-icon">&#128176;</span></div>
+                    <div class="how-info-icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></div>
                     <h4>Wallet &amp; pricing</h4>
                     <ul>
                         <li>Prices are in <strong>USD per 1,000</strong> units (followers, views, likes, etc.).</li>
@@ -82,7 +82,7 @@ class HowItWorks extends HTMLElement {
                 </div>
 
                 <div class="how-info-card">
-                    <div class="how-info-icon-wrap"><span class="how-info-icon">&#128279;</span></div>
+                    <div class="how-info-icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div>
                     <h4>Links &amp; delivery</h4>
                     <ul>
                         <li>Always use a <strong>full, public URL</strong> &mdash; private or broken links will delay or fail the order.</li>
@@ -93,7 +93,7 @@ class HowItWorks extends HTMLElement {
                 </div>
 
                 <div class="how-info-card">
-                    <div class="how-info-icon-wrap"><span class="how-info-icon">&#128170;</span></div>
+                    <div class="how-info-icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div>
                     <h4>Normal vs Premium</h4>
                     <ul>
                         <li><strong>Normal</strong> &mdash; lower cost, solid delivery, no refill. Great for one-time boosts or testing a platform.</li>
@@ -103,7 +103,7 @@ class HowItWorks extends HTMLElement {
                 </div>
 
                 <div class="how-info-card">
-                    <div class="how-info-icon-wrap"><span class="how-info-icon">&#128274;</span></div>
+                    <div class="how-info-icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg></div>
                     <h4>Security &amp; payments</h4>
                     <ul>
                         <li>Payments are processed entirely by <strong>Paystack</strong> &mdash; we never store card numbers or mobile money PINs.</li>
@@ -114,7 +114,7 @@ class HowItWorks extends HTMLElement {
                 </div>
 
                 <div class="how-info-card">
-                    <div class="how-info-icon-wrap"><span class="how-info-icon">&#127760;</span></div>
+                    <div class="how-info-icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>
                     <h4>Supported platforms</h4>
                     <ul>
                         <li><strong>TikTok</strong> &mdash; Followers, Views, Likes, Comments, Live Views, Shares, Saves</li>
@@ -127,7 +127,7 @@ class HowItWorks extends HTMLElement {
                 </div>
 
                 <div class="how-info-card">
-                    <div class="how-info-icon-wrap"><span class="how-info-icon">&#128172;</span></div>
+                    <div class="how-info-icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
                     <h4>FAQs</h4>
                     <ul>
                         <li><strong>How fast is delivery?</strong> Each package card shows its own start time and speed &mdash; some begin instantly, others within a few hours.</li>

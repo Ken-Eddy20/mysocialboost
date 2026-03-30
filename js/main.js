@@ -60,6 +60,7 @@ function setAuthState(user) {
     try {
         if (user) {
             if(document.getElementById('hero')) document.getElementById('hero').style.display = 'none';
+            if(document.getElementById('landing-features')) document.getElementById('landing-features').style.display = 'none';
             if(document.getElementById('how')) document.getElementById('how').style.display = 'none';
             if(document.getElementById('payment')) document.getElementById('payment').style.display = 'none';
             
@@ -85,6 +86,7 @@ function setAuthState(user) {
         } else {
             closeCheckoutPayPage(true);
             if(document.getElementById('hero')) document.getElementById('hero').style.display = 'block';
+            if(document.getElementById('landing-features')) document.getElementById('landing-features').style.display = 'block';
             if(document.getElementById('how')) document.getElementById('how').style.display = 'block';
             if(document.getElementById('payment')) document.getElementById('payment').style.display = 'block';
             
@@ -360,7 +362,7 @@ async function confirmCheckoutAndOpenPaystack() {
     const btn = document.querySelector('.checkout-review-pay');
     if (btn) btn.disabled = true;
     try {
-        toast('Redirecting to Paystack…', 'succ');
+        toast('Redirecting to Paystack…', 'info');
         const res = await fetch('/api/paystack/initialize', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'Authorization': `Bearer ${authToken}` },
@@ -606,11 +608,36 @@ document.getElementById('order-form').addEventListener('submit', async function(
 });
 
 function toast(msg, type) {
+    const icons = {
+        succ: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+        err:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+        info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
+        warn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+    };
+    const titles = { succ: 'Success', err: 'Error', info: 'Info', warn: 'Warning' };
+    const cls = type || 'info';
+
     const t = document.createElement('div');
-    t.className = `toast show ${type}`;
-    t.textContent = msg;
+    t.className = `toast ${cls}`;
+    t.innerHTML = `
+        <span class="toast-icon">${icons[cls] || icons.info}</span>
+        <div class="toast-body">
+            <div class="toast-title">${titles[cls] || 'Notice'}</div>
+            <div class="toast-msg">${msg}</div>
+        </div>
+        <button class="toast-close" aria-label="Close">&times;</button>
+        <span class="toast-progress"></span>
+    `;
+    t.querySelector('.toast-close').onclick = () => dismiss(t);
     document.getElementById('toasts').appendChild(t);
-    setTimeout(() => { t.classList.remove('show'); setTimeout(()=>t.remove(),300); }, 4000);
+    requestAnimationFrame(() => t.classList.add('show'));
+
+    const timer = setTimeout(() => dismiss(t), 4200);
+    function dismiss(el) {
+        clearTimeout(timer);
+        el.classList.remove('show');
+        setTimeout(() => el.remove(), 400);
+    }
 }
 
 function consumeWalletTopupQuery() {

@@ -9,8 +9,8 @@ class Navbar extends HTMLElement {
                 <div class="nav-links" id="nav-guest">
                     <a href="#services">Services</a>
                     <a href="#how">How It Works</a>
-                    <a href="javascript:void(0)" onclick="openLoginModal()">Login</a>
-                    <a href="javascript:void(0)" class="btn btn-primary btn-nav" onclick="openSignupModal()">Sign Up</a>
+                    <a href="javascript:void(0)" class="btn btn-login" onclick="openLoginModal()">Login</a>
+                    <a href="javascript:void(0)" class="btn btn-get-started" onclick="openSignupModal()">Get Started</a>
                 </div>
 
                 <!-- Logged-in nav -->
