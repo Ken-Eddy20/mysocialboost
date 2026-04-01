@@ -33,7 +33,7 @@ class Dashboard extends HTMLElement {
 
             <!-- Services -->
             <div class="container" style="padding-top:48px; padding-bottom:0;">
-                <h2 class="sec-title" style="text-align:left; font-size:1.8rem; margin-bottom:20px;">Place New Order</h2>
+                <h2 class="sec-title" style="text-align:center; font-family:'Outfit', sans-serif; font-weight:800; font-size:2.2rem; margin-bottom:30px; line-height:1.2; letter-spacing:-0.5px;">Place New Order</h2>
                 <div id="dash-services-container"></div>
             </div>
 

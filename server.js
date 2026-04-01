@@ -690,6 +690,14 @@ app.post('/api/order', orderLimiter, (req, res) => {
     });
 });
 
+// ── Health Check (for UptimeRobot/Render Keep-Alive) ─────────────────
+app.get('/api/health', (req, res) => {
+    res.json({
+        status: 'ok',
+        timestamp: new Date().toISOString()
+    });
+});
+
 // ── FX rate endpoint ─────────────────────────────────────────────────
 app.get('/api/fx/ghs-usd', async (_req, res) => {
     try {
