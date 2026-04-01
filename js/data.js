@@ -38,6 +38,7 @@ function setDisplayCurrency(cur) {
         window.dispatchEvent(new Event('currencyChanged'));
     }
 }
+window.setDisplayCurrency = setDisplayCurrency;
 
 function formatCurrency(usdAmount) {
     const usd = Number(usdAmount) || 0;

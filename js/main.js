@@ -53,6 +53,18 @@ window.onFirebaseAuthChanged = function (fbUser) {
     }
 };
 
+async function logout() {
+    try {
+        if (typeof window.fbSignOut === 'function') await window.fbSignOut();
+    } catch (e) { console.error(e); }
+    setAuthState(null);
+    toast('Logged out', 'succ');
+}
+
+window.openLoginModal = openLoginModal;
+window.openSignupModal = openSignupModal;
+window.logout = logout;
+
 function setAuthState(user) {
     walletListenUnsub?.();
     walletListenUnsub = null;
@@ -108,14 +120,6 @@ function setAuthState(user) {
     } catch(e) {
         console.error('State UI Error:', e);
     }
-}
-
-async function logout() {
-    try {
-        if (typeof window.fbSignOut === 'function') await window.fbSignOut();
-    } catch (e) { console.error(e); }
-    setAuthState(null);
-    toast('Logged out successfully', 'succ');
 }
 
 // ----- AUTH MODALS -----
@@ -734,6 +738,10 @@ function showServicesView() {
     const svc = document.getElementById('services');
     if (svc) svc.scrollIntoView({ behavior: 'smooth' });
 }
+
+window.showDashboardView = showDashboardView;
+window.showServicesView = showServicesView;
+window.showHowItWorksView = showHowItWorksView;
 
 function showHowItWorksView() {
     if (!currentUser) return;

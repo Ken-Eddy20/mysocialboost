@@ -687,14 +687,16 @@ footer .footer-brand {
 }
 
 @media (max-width: 600px) {
-    .nav-inner { height: auto; flex-direction: column; align-items: stretch; padding-top: 15px; }
-    .logo { margin-bottom: 12px; text-align: center; order: 1; margin-top: 5px; }
-    .nav-links-right { order: 2; margin-bottom: 15px; width: 100%; justify-content: center; }
+    .nav-inner { height: auto; flex-direction: column; align-items: stretch; padding-top: 10px; }
+    .logo { margin-bottom: 8px; text-align: center; order: 1; margin-top: 0; font-size: 1.3rem; }
+    .nav-links-right { order: 2; margin-bottom: 10px; width: 100%; justify-content: center; gap: 8px; flex-wrap: wrap; }
+    .nav-links-right select { padding: 5px 8px; font-size: 0.8rem; }
+    .nav-links-right .btn { padding: 6px 12px; font-size: 0.8rem; }
     
-    .nav-links { order: 3; width: 100%; justify-content: flex-start; gap: 4px; overflow-x: auto; padding: 0 15px; -ms-overflow-style: none; scrollbar-width: none; }
+    .nav-links { order: 3; width: 100%; justify-content: flex-start; gap: 4px; overflow-x: auto; padding: 0 10px; -ms-overflow-style: none; scrollbar-width: none; }
     .nav-links::-webkit-scrollbar { display: none; }
     
-    .nav-tab { padding: 12px 14px; font-size: 0.82rem; border-radius: 12px 12px 0 0; white-space: nowrap; }
+    .nav-tab { padding: 10px 12px; font-size: 0.8rem; border-radius: 12px 12px 0 0; white-space: nowrap; }
     .nav-tab.active::before, .nav-tab.active::after { width: 16px; height: 16px; }
     .nav-tab.active::before { left: -16px; background: radial-gradient(circle at top left, transparent 15.5px, var(--bg) 16px); }
     .nav-tab.active::after { right: -16px; background: radial-gradient(circle at top right, transparent 15.5px, var(--bg) 16px); }
