@@ -6,9 +6,9 @@ let selSvc = null;
 let currentUser = null;
 let walletListenUnsub = null;
 
-function setBalanceLabel(balance) {
+function setBalanceLabel(balanceUsd) {
     const el = document.getElementById('balance');
-    if (el) el.innerText = `GHS ${Number(balance).toFixed(2)}`;
+    if (el) el.innerText = formatCurrency(balanceUsd);
 }
 
 async function refreshBalanceFromFirestore(user) {
@@ -70,8 +70,8 @@ function setAuthState(user) {
             }
             
             if(document.getElementById('dash-email')) document.getElementById('dash-email').textContent = user.username || user.email;
-            if (typeof user.balanceGhs === 'number' && Number.isFinite(user.balanceGhs)) {
-                setBalanceLabel(user.balanceGhs);
+            if (typeof user.balance === 'number' && Number.isFinite(user.balance)) {
+                setBalanceLabel(user.balance);
             }
             if (typeof window.listenToWallet === 'function') {
                 walletListenUnsub = window.listenToWallet(user.id, (balance) => setBalanceLabel(balance));
@@ -80,7 +80,9 @@ function setAuthState(user) {
             if(document.getElementById('dashboard')) document.getElementById('dashboard').style.display = 'block';
             
             if(document.getElementById('nav-guest')) document.getElementById('nav-guest').style.display = 'none';
+            if(document.getElementById('nav-guest-btns')) document.getElementById('nav-guest-btns').style.display = 'none';
             if(document.getElementById('nav-user')) document.getElementById('nav-user').style.display = 'flex';
+            if(document.getElementById('nav-user-btns')) document.getElementById('nav-user-btns').style.display = 'flex';
             
             window.scrollTo({ top: 0, behavior: 'smooth' });
         } else {
@@ -99,7 +101,9 @@ function setAuthState(user) {
             if(document.getElementById('dashboard')) document.getElementById('dashboard').style.display = 'none';
             
             if(document.getElementById('nav-guest')) document.getElementById('nav-guest').style.display = 'flex';
+            if(document.getElementById('nav-guest-btns')) document.getElementById('nav-guest-btns').style.display = 'flex';
             if(document.getElementById('nav-user')) document.getElementById('nav-user').style.display = 'none';
+            if(document.getElementById('nav-user-btns')) document.getElementById('nav-user-btns').style.display = 'none';
         }
     } catch(e) {
         console.error('State UI Error:', e);
@@ -274,14 +278,29 @@ function openCheckoutPayPage(amountGHS, fromFundsModal = false) {
     pendingTopUpGHS = Number(amountGHS);
     selectedCheckoutMethod = null;
     checkoutFromFundsModal = !!fromFundsModal;
+    
+    if (!currentUser) return;
+
+    if (fromFundsModal) {
+        document.getElementById('funds-modal').classList.remove('open');
+    }
+
     const pg = document.getElementById('checkout-pay-fullpage');
-    const sum = document.getElementById('checkout-pay-amount-summary');
-    if (sum) sum.textContent = `GHS ${pendingTopUpGHS.toFixed(2)}`;
     if (pg) {
         pg.classList.add('open');
         pg.setAttribute('aria-hidden', 'false');
     }
+    
+    document.body.style.overflow = 'hidden';
     checkoutShowStep('pick');
+    
+    const usd = pendingTopUpGHS * GHS_TO_USD;
+    const sum = document.getElementById('checkout-pay-amount-summary');
+    if (sum) sum.textContent = formatCurrency(usd);
+    
+    const hintC = document.getElementById('f-ghs-checkout-hint1');
+    if (hintC) hintC.textContent = `(Paystack securely handles payments in Ghana Cedis. You will be billed roughly GHS ${pendingTopUpGHS.toFixed(2)}.)`;
+    
     window.scrollTo(0, 0);
 }
 
@@ -290,8 +309,10 @@ function closeCheckoutPayPage(afterSuccess) {
     const pg = document.getElementById('checkout-pay-fullpage');
     if (pg) {
         pg.classList.remove('open');
+        pg.classList.remove('visible');
         pg.setAttribute('aria-hidden', 'true');
     }
+    document.body.style.overflow = '';
     const reopen = checkoutFromFundsModal && !afterSuccess;
     checkoutFromFundsModal = false;
     pendingTopUpGHS = 0;
@@ -300,22 +321,28 @@ function closeCheckoutPayPage(afterSuccess) {
 
 function selectCheckoutPaymentMethod(methodId) {
     if (!pendingTopUpGHS || pendingTopUpGHS < 10) {
-        toast('Invalid amount. Go back and enter at least GHS 10.', 'err');
+        toast(`Invalid amount. Please enter a valid equivalent of at least 10 GHS.`, 'err');
         return;
     }
     const info = CHECKOUT_METHOD_INFO[methodId];
     if (!info) return;
     selectedCheckoutMethod = methodId;
-    const amt = `GHS ${pendingTopUpGHS.toFixed(2)}`;
-    const ra = document.getElementById('checkout-review-amount');
-    if (ra) ra.textContent = amt;
-    const mn = document.getElementById('checkout-review-method-name');
-    if (mn) mn.textContent = info.title;
+    
+    checkoutShowStep('review');
+    
+    const usd = pendingTopUpGHS * GHS_TO_USD;
+    const rev = document.getElementById('checkout-review-amount');
+    if (rev) rev.textContent = formatCurrency(usd);
+    
+    const hintC = document.getElementById('f-ghs-checkout-hint2');
+    if (hintC) hintC.textContent = `(Paystack securely handles payments in Ghana Cedis. You will be billed roughly GHS ${pendingTopUpGHS.toFixed(2)}.)`;
+    
+    const mName = document.getElementById('checkout-review-method-name');
+    if (mName) mName.textContent = info.title;
     const em = document.getElementById('checkout-review-email');
     if (em) em.textContent = currentUser?.email || '—';
     const det = document.getElementById('checkout-review-detail');
     if (det) det.innerHTML = `<p>${info.detail}</p>`;
-    checkoutShowStep('review');
 }
 
 function checkoutGoBackToMethods() {
@@ -368,6 +395,7 @@ async function confirmCheckoutAndOpenPaystack() {
             headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'Authorization': `Bearer ${authToken}` },
             body: JSON.stringify({
                 amountGHS: pendingTopUpGHS,
+                channel: selectedCheckoutMethod
             }),
         });
         const raw = await res.text();
@@ -424,16 +452,36 @@ function pay() {
     openCheckoutPayPage(100);
 }
 
-document.getElementById('f-amount-ghs')?.addEventListener('input', (e) => {
-    const usd = (e.target.value * GHS_TO_USD).toFixed(2);
-    document.getElementById('f-amount-usd').textContent = usd;
+document.getElementById('f-amount-input')?.addEventListener('input', (e) => {
+    const amt = parseFloat(e.target.value) || 0;
+    
+    let usd = 0;
+    if (currentDisplayCurrency === 'USD') usd = amt;
+    else if (currentDisplayCurrency === 'GHS') usd = amt * GHS_TO_USD;
+    else usd = amt / (GLOBAL_RATES[currentDisplayCurrency] || 1);
+    
+    document.getElementById('f-amount-usd').textContent = usd.toFixed(2);
+    
+    const ghs = usd / GHS_TO_USD;
+    const ghsWarning = document.getElementById('f-ghs-warning');
+    if (ghsWarning) {
+        ghsWarning.textContent = `Paystack will securely process your payment in Ghana Cedis. You'll be charged roughly GHS ${ghs.toFixed(2)}.`
+    }
 });
 
 document.getElementById('funds-form')?.addEventListener('submit', (e) => {
     e.preventDefault();
-    const amountGHS = parseInt(document.getElementById('f-amount-ghs').value, 10);
+    const amt = parseFloat(document.getElementById('f-amount-input').value) || 0;
+    
+    let usd = 0;
+    if (currentDisplayCurrency === 'USD') usd = amt;
+    else if (currentDisplayCurrency === 'GHS') usd = amt * GHS_TO_USD;
+    else usd = amt / (GLOBAL_RATES[currentDisplayCurrency] || 1);
+    
+    const amountGHS = parseInt(usd / GHS_TO_USD, 10);
+    
     if (!Number.isFinite(amountGHS) || amountGHS < 10) {
-        return toast('Enter a valid amount (minimum GHS 10).', 'err');
+        return toast('Enter a valid higher amount (minimum equivalent of GHS 10).', 'err');
     }
     document.getElementById('funds-modal').classList.remove('open');
     openCheckoutPayPage(amountGHS, true);
@@ -523,6 +571,14 @@ function renderGrid(plat, cat) {
                 <button class="btn btn-primary" style="width:100%" onclick="openModal('${plat}','${cat}','${s.id}')">Order Now</button>
             </div>`;
     });
+
+    if (window.appScrollObserver) {
+        gridEl.querySelectorAll('.card').forEach((el, i) => {
+            el.classList.add('animate-hidden');
+            el.style.transitionDelay = `${(i % 10) * 0.05}s`;
+            window.appScrollObserver.observe(el);
+        });
+    }
 }
 
 // ----- ORDERING LOGIC -----
@@ -545,9 +601,8 @@ function updateSum() {
     if(!selSvc) return;
     const q = parseInt(qtyInp.value) || 0;
     const usd = (q / 1000) * selSvc.price;
-    const ghs = usd / GHS_TO_USD;
     document.getElementById('s-usd').textContent = `$${usd.toFixed(2)}`;
-    document.getElementById('s-ghs').textContent = `(GHS ${ghs.toFixed(2)})`;
+    document.getElementById('s-ghs').textContent = `(≈ ${formatCurrency(usd)})`;
     if(document.getElementById('btn-cost')) document.getElementById('btn-cost').textContent = usd.toFixed(2);
 }
 
@@ -657,17 +712,25 @@ function consumeWalletTopupQuery() {
 }
 
 // ----- VIEW SWITCHING (logged-in nav) -----
+function updateActiveTab(viewId) {
+    document.querySelectorAll('#nav-user .nav-tab').forEach(t => t.classList.remove('active'));
+    const t = document.querySelector(`#nav-user .nav-tab[data-view="${viewId}"]`);
+    if (t) t.classList.add('active');
+}
+
 function showDashboardView() {
     if (!currentUser) return;
     const dash = document.getElementById('dashboard');
     const how  = document.getElementById('how');
     if (dash) dash.style.display = 'block';
     if (how)  how.style.display  = 'none';
+    updateActiveTab('dashboard');
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function showServicesView() {
     showDashboardView();
+    updateActiveTab('services');
     const svc = document.getElementById('services');
     if (svc) svc.scrollIntoView({ behavior: 'smooth' });
 }
@@ -678,6 +741,7 @@ function showHowItWorksView() {
     const how  = document.getElementById('how');
     if (dash) dash.style.display = 'none';
     if (how)  how.style.display  = 'block';
+    updateActiveTab('how');
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -703,8 +767,65 @@ async function forgotPassword() {
 
 document.addEventListener('DOMContentLoaded', () => {
     consumeWalletTopupQuery();
+    
+    // Setup global scroll observer for animations
+    window.appScrollObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('animate-visible');
+                window.appScrollObserver.unobserve(entry.target);
+            }
+        });
+    }, { threshold: 0.1, rootMargin: "0px 0px -20px 0px" });
+
+    // Initial setup of elements
+    const animSelectors = ['.sec-title', '.sec-subtitle', '.feature-card', '.how-info-card', '.stat', '.pay-card', '.trust-bar span', '.how-timeline-item'];
+    animSelectors.forEach(sel => {
+        document.querySelectorAll(sel).forEach((el, index) => {
+            el.classList.add('animate-hidden');
+            if (el.closest('.features-grid') || el.closest('.how-info-grid') || el.closest('.pay-methods') || el.closest('.stats-bar') || el.closest('.trust-bar')) {
+                const i = Array.from(el.parentNode.children).indexOf(el);
+                el.style.transitionDelay = `${(i % 10) * 0.1}s`;
+            }
+            window.appScrollObserver.observe(el);
+        });
+    });
+
     renderTabs();
     if (typeof window.fbCheckPendingAuth === 'function') {
         window.fbCheckPendingAuth();
     }
+
+    // Guest scroll tracking for tabs
+    window.addEventListener('scroll', () => {
+        if (currentUser) return;
+        const scrollY = window.scrollY;
+        const how = document.getElementById('how');
+        const tabs = document.querySelectorAll('#nav-guest .nav-tab');
+        if (!tabs.length) return;
+        
+        tabs.forEach(t => t.classList.remove('active'));
+        if (how && scrollY > how.offsetTop - 300) {
+            if(tabs[1]) tabs[1].classList.add('active');
+        } else {
+            if(tabs[0]) tabs[0].classList.add('active');
+        }
+    });
+    
+    window.addEventListener('currencyChanged', () => {
+        // Sync selectors
+        document.querySelectorAll('select[onchange*="setDisplayCurrency"]').forEach(s => s.value = currentDisplayCurrency);
+        // Sync labels
+        const amtLabel = document.getElementById('currency-input-label');
+        if (amtLabel) amtLabel.textContent = currentDisplayCurrency;
+        
+        if (currentUser) {
+            setBalanceLabel(currentUser.balance);
+        }
+        updateSum();
+        
+        // Retrigger Add Funds math to update preview
+        const input = document.getElementById('f-amount-input');
+        if(input) input.dispatchEvent(new Event('input'));
+    });
 });

@@ -55,7 +55,7 @@ class Dashboard extends HTMLElement {
                     <div class="feature-card">
                         <div class="feature-icon fi-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></div>
                         <h3>Affordable Pricing</h3>
-                        <p>Pay in GHS with Mobile Money, cards, or bank transfer. Prices start from just a few pesewas.</p>
+                        <p>Pay with Mobile Money, cards, or bank transfer securely across Africa. Prices start from just a few cents.</p>
                     </div>
                     <div class="feature-card">
                         <div class="feature-icon fi-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></div>
@@ -74,11 +74,12 @@ class Dashboard extends HTMLElement {
                     <button class="m-close" onclick="document.getElementById('funds-modal').classList.remove('open')">&times;</button>
                 </div>
                 <form class="m-body" id="funds-form">
-                    <p style="color:var(--muted); font-size:0.9rem; margin-bottom:15px;">Funds are securely processed via Paystack and instantly converted to USD balance.</p>
+                    <p style="color:var(--muted); font-size:0.9rem; margin-bottom:15px;">Funds are securely processed via Paystack and instantly converted to your USD balance.</p>
                     <div class="form-group">
-                        <label>Amount (in GHS)</label>
-                        <input type="number" id="f-amount-ghs" class="form-control" required min="10" value="100">
+                        <label>Amount (in <span id="currency-input-label">GHS</span>)</label>
+                        <input type="number" id="f-amount-input" class="form-control" required min="1" value="100">
                         <p style="margin-top:8px; font-size:0.9rem; color:var(--cyan);">&asymp; $<span id="f-amount-usd">6.70</span> USD</p>
+                        <p id="f-ghs-warning" style="font-size: 0.8rem; color: var(--muted); margin-top: 10px; line-height: 1.4;"></p>
                     </div>
                     <button type="submit" class="btn btn-primary" style="width:100%">PAY</button>
                 </form>
@@ -93,6 +94,7 @@ class Dashboard extends HTMLElement {
                 <div id="checkout-step-pick" class="checkout-step is-active">
                     <h2 class="checkout-pay-title">Choose how to pay</h2>
                     <p class="checkout-pay-sub">Amount to add: <strong id="checkout-pay-amount-summary">GHS 0.00</strong></p>
+                    <p id="f-ghs-checkout-hint1" style="font-size:0.8rem; color:var(--muted); text-align:center; margin-top:-8px; margin-bottom:20px;"></p>
                     <p class="checkout-pay-hint">Select how you want to pay. Next, you will review the details before opening the secure checkout.</p>
                     <div class="checkout-method-grid">
                         <button type="button" class="checkout-method-card" onclick="selectCheckoutPaymentMethod('momo')">
@@ -119,6 +121,7 @@ class Dashboard extends HTMLElement {
                 <div id="checkout-step-review" class="checkout-step">
                     <h2 class="checkout-pay-title">Review &amp; continue</h2>
                     <p class="checkout-pay-sub">Amount: <strong id="checkout-review-amount">GHS 0.00</strong></p>
+                    <p id="f-ghs-checkout-hint2" style="font-size:0.8rem; color:var(--muted); text-align:center; margin-top:-8px; margin-bottom:20px;"></p>
                     <p class="checkout-review-method"><span class="checkout-review-label">Payment method</span><span id="checkout-review-method-name">&mdash;</span></p>
                     <p class="checkout-review-email"><span class="checkout-review-label">Paying as</span><span id="checkout-review-email">&mdash;</span></p>
                     <div class="checkout-review-detail" id="checkout-review-detail"></div>

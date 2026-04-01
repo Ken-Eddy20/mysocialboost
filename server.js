@@ -48,7 +48,16 @@ function serverSideCostUsd(serviceId, quantity) {
 const app = express();
 
 app.use(helmet({
-    contentSecurityPolicy: false,
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'", "https:", "wss:", "data:", "blob:"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https:"],
+            styleSrc: ["'self'", "'unsafe-inline'", "https:"],
+            fontSrc: ["'self'", "data:", "https:"],
+            connectSrc: ["'self'", "https:", "wss:"],
+            frameSrc: ["'self'", "https:"],
+        },
+    },
     crossOriginEmbedderPolicy: false,
 }));
 
@@ -78,22 +87,20 @@ const paymentLimiter = rateLimit({
     message: { success: false, message: 'Too many payment requests. Slow down.' },
 });
 
+const orderLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { success: false, message: 'Rate limit exceeded. Too many orders.' },
+});
+
 // ── Block sensitive files from being served ──────────────────────────
-const BLOCKED_FILES = new Set([
-    '/database.json',
-    '/serviceaccountkey.json',
-    '/serviceaccount.json',
-    '/.env',
-    '/server.js',
-    '/package.json',
-    '/package-lock.json',
-    '/build.mjs',
-    '/.gitignore',
-]);
+const SENSITIVE_RX = /\/(?:database\.json|serviceaccount.*\.json|\.env.*|\.git|server\.js|package.*\.json|build\.mjs)/i;
 
 app.use((req, res, next) => {
     const lower = req.path.toLowerCase();
-    if (BLOCKED_FILES.has(lower) || lower.startsWith('/lib/') || lower.startsWith('/scripts/')) {
+    if (SENSITIVE_RX.test(lower) || lower.startsWith('/lib/') || lower.startsWith('/scripts/')) {
         return res.status(404).end();
     }
     next();
@@ -422,11 +429,17 @@ app.post('/api/paystack/initialize', paymentLimiter, async (req, res) => {
         const decoded = await verifyFirebaseToken(req);
         if (!decoded) return res.json({ success: false, message: 'Unauthorized' });
 
-        const { amountGHS } = req.body;
+        const { amountGHS, channel } = req.body;
         const amt = Number(amountGHS);
         if (!Number.isFinite(amt) || amt < 10 || amt > 50000) {
             return res.json({ success: false, message: 'Enter a valid amount (GHS 10 – 50,000).' });
         }
+        
+        let channels;
+        if (channel === 'momo') channels = ['mobile_money'];
+        else if (channel === 'card') channels = ['card'];
+        else if (channel === 'bank') channels = ['bank', 'bank_transfer', 'eft'];
+        
         const db = getDB();
         const user = db.users.find((u) => u.id === decoded.uid);
         if (!user) {
@@ -439,6 +452,7 @@ app.post('/api/paystack/initialize', paymentLimiter, async (req, res) => {
             amountGHS: amt,
             reference,
             callbackUrl,
+            channels
         });
         if (!init.ok) {
             return res.json({ success: false, message: init.reason || 'Could not start checkout' });
@@ -558,7 +572,7 @@ app.post('/api/add-funds', paymentLimiter, (req, res) => {
 });
 
 // ── Order route (server-side pricing) ────────────────────────────────
-app.post('/api/order', (req, res) => {
+app.post('/api/order', orderLimiter, (req, res) => {
     runOrderSerial(async () => {
         try {
             const decoded = await verifyFirebaseToken(req);

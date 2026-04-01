@@ -28,8 +28,8 @@ class HowItWorks extends HTMLElement {
                     </div>
                     <div class="how-tl-content">
                         <h4>Fund your wallet</h4>
-                        <p>Click <strong>Add Funds</strong>, enter any amount from GHS&nbsp;10 upward, and choose how to pay &mdash; Mobile Money (MTN MoMo, Vodafone Cash, AirtelTigo), debit/credit card, or bank transfer. Paystack handles the checkout; we never see your card number or MoMo PIN.</p>
-                        <p>Your payment is verified on our server in real time. Once confirmed, the GHS amount is converted to USD at the live market rate and credited to your wallet instantly.</p>
+                        <p>Click <strong>Add Funds</strong>, enter your desired top-up amount, and choose how to pay &mdash; Mobile Money, debit/credit card, or bank transfer. Paystack securely handles checkout across multiple currencies.</p>
+                        <p>Your payment is verified on our server in real time. Once confirmed, the equivalent amount is converted to USD at the live market rate and credited to your wallet instantly.</p>
                     </div>
                 </div>
 
@@ -50,7 +50,7 @@ class HowItWorks extends HTMLElement {
                     </div>
                     <div class="how-tl-content">
                         <h4>Place your order</h4>
-                        <p>Tap <strong>Order Now</strong>, paste the public link to your profile or post, and set the quantity. The total cost in USD and GHS updates live so there are no surprises.</p>
+                        <p>Tap <strong>Order Now</strong>, paste the public link to your profile or post, and set the quantity. The total cost updates live in USD and your selected local currency so there are no surprises.</p>
                         <p>Hit <strong>Place Order</strong> &mdash; the cost is deducted from your wallet and the order is routed to our provider network immediately. Delivery begins within the start time shown on the card.</p>
                     </div>
                 </div>
@@ -75,9 +75,9 @@ class HowItWorks extends HTMLElement {
                     <h4>Wallet &amp; pricing</h4>
                     <ul>
                         <li>Prices are in <strong>USD per 1,000</strong> units (followers, views, likes, etc.).</li>
-                        <li>Top-ups are in GHS &mdash; converted at a live exchange rate that refreshes automatically.</li>
-                        <li>Your dashboard shows your balance in GHS so you always know what you have.</li>
-                        <li>Minimum top-up is <strong>GHS&nbsp;10</strong>; no maximum.</li>
+                        <li>You can view estimated prices in your local currency using the top-bar selector. Actual payments are processed securely via Paystack in GHS at live exchange rates.</li>
+                        <li>Your dashboard shows your balance in your selected local currency so you always know what you have.</li>
+                        <li>Minimum top-up equivalent is roughly <strong>GHS&nbsp;10</strong>; there is no maximum limit.</li>
                     </ul>
                 </div>
 

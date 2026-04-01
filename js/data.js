@@ -1,19 +1,53 @@
 /* ======================== CONFIG VARIABLES ======================== */
 /* Top-ups: full-page Paystack via POST /api/paystack/initialize (secret stays on server). */
 let GHS_TO_USD = 0.067;
+let GLOBAL_RATES = { NGN: 1500, KES: 130, ZAR: 19 };
 
-function refreshGhsUsdRate() {
-    fetch('/api/fx/ghs-usd')
-        .then(r => r.json())
-        .then(d => {
-            if (d && typeof d.ghsToUsd === 'number' && d.ghsToUsd > 0) {
-                GHS_TO_USD = d.ghsToUsd;
-            }
-        })
-        .catch(() => {});
+async function refreshGhsUsdRate() {
+    try {
+        const res = await fetch('/api/fx/ghs-usd');
+        const d = await res.json();
+        if (d && typeof d.ghsToUsd === 'number' && d.ghsToUsd > 0) {
+            GHS_TO_USD = d.ghsToUsd;
+        }
+    } catch(e) { console.error('Error fetching GHS rate', e); }
 }
+
+async function refreshGlobalRates() {
+    try {
+        const res = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
+        const data = await res.json();
+        if (data && data.rates) {
+            ['NGN', 'KES', 'ZAR'].forEach(cur => {
+                if (data.rates[cur]) GLOBAL_RATES[cur] = data.rates[cur];
+            });
+        }
+    } catch(e) { console.error("FX fetch err", e); }
+}
+
 refreshGhsUsdRate();
+refreshGlobalRates();
 setInterval(refreshGhsUsdRate, 10 * 60 * 1000);
+setInterval(refreshGlobalRates, 60 * 60 * 1000);
+
+let currentDisplayCurrency = localStorage.getItem('displayCurrency') || 'GHS';
+function setDisplayCurrency(cur) {
+    if (['GHS', 'NGN', 'KES', 'ZAR', 'USD'].includes(cur)) {
+        currentDisplayCurrency = cur;
+        localStorage.setItem('displayCurrency', cur);
+        window.dispatchEvent(new Event('currencyChanged'));
+    }
+}
+
+function formatCurrency(usdAmount) {
+    const usd = Number(usdAmount) || 0;
+    if (currentDisplayCurrency === 'USD') return `$${usd.toFixed(2)}`;
+    if (currentDisplayCurrency === 'GHS') {
+        return `GHS ${(usd / GHS_TO_USD).toFixed(2)}`;
+    }
+    const rate = GLOBAL_RATES[currentDisplayCurrency] || 1;
+    return `${currentDisplayCurrency} ${(usd * rate).toFixed(2)}`;
+}
 
 const services = {
     'TikTok': {
