@@ -9,6 +9,10 @@ import {
     onAuthStateChanged,
     sendPasswordResetEmail,
     updateProfile,
+    GoogleAuthProvider,
+    FacebookAuthProvider,
+    signInWithPopup,
+    sendEmailVerification
 } from 'https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js';
 
 const firebaseConfig = {
@@ -38,6 +42,13 @@ window.fbResetPassword = (email) => sendPasswordResetEmail(auth, email);
 window.fbUpdateProfile = (user, data) => updateProfile(user, data);
 window.fbGetToken = () => (auth.currentUser ? auth.currentUser.getIdToken() : Promise.resolve(null));
 window.fbUser = () => auth.currentUser;
+
+const googleProvider = new GoogleAuthProvider();
+const facebookProvider = new FacebookAuthProvider();
+
+window.fbSignInWithGoogle = () => signInWithPopup(auth, googleProvider);
+window.fbSignInWithFacebook = () => signInWithPopup(auth, facebookProvider);
+window.fbSendEmailVerification = (user) => sendEmailVerification(user);
 
 let _pendingAuthUser = undefined;
 let _authReady = false;

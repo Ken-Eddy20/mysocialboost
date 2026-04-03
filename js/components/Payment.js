@@ -21,7 +21,7 @@ class Payment extends HTMLElement {
                     <p>Direct Bank Transfer available</p>
                 </div>
             </div>
-            <div style="text-align:center; margin-top:28px;">
+            <div style="text-align:center; margin-top:28px; margin-bottom:60px;">
                 <button type="button" class="btn btn-primary" onclick="pay()">Fund Wallet</button>
             </div>
         </section>

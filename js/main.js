@@ -47,7 +47,12 @@ async function loadUserProfile() {
 
 window.onFirebaseAuthChanged = function (fbUser) {
     if (fbUser) {
-        loadUserProfile();
+        if (!fbUser.emailVerified && fbUser.providerData.some(p => p.providerId === 'password')) {
+            window.fbSignOut();
+            setAuthState(null);
+        } else {
+            loadUserProfile();
+        }
     } else {
         setAuthState(null);
     }
@@ -130,6 +135,23 @@ function closeAuthModals() {
     document.getElementById('login-modal').classList.remove('open');
 }
 
+window.ssoLogin = async function(providerKey) {
+    try {
+        const fn = providerKey === 'google' ? window.fbSignInWithGoogle : window.fbSignInWithFacebook;
+        if (!fn) throw new Error('SSO provider not ready');
+        const result = await fn();
+        const name = result.user?.displayName?.split(' ')[0] || 'there';
+        toast(`Welcome back, ${name}!`, 'succ');
+        closeAuthModals();
+    } catch (e) {
+        console.error('SSO Error:', e);
+        // Ignore "popup closed by user" error silently
+        if (e.code === 'auth/popup-closed-by-user') return;
+        const msg = e.message || 'SSO Login failed.';
+        toast(msg, 'err');
+    }
+};
+
 const STRICT_EMAIL_RE = /^[a-zA-Z0-9](?:[a-zA-Z0-9._%+\-]*[a-zA-Z0-9])?@[a-zA-Z0-9](?:[a-zA-Z0-9\-]*[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9\-]*[a-zA-Z0-9])?)*\.[a-zA-Z]{2,12}$/;
 function isValidEmailClient(s) {
     if (typeof s !== 'string' || s.length > 254) return false;
@@ -186,9 +208,11 @@ document.getElementById('signup-form')?.addEventListener('submit', async (e) => 
         });
         const regData = await regRes.json();
         if (regData.success) {
-            setAuthState(regData.user);
+            await window.fbSendEmailVerification(cred.user);
+            await window.fbSignOut();
+            setAuthState(null);
             closeAuthModals();
-            toast('Account created successfully!', 'succ');
+            toast('Account created! Please check your email inbox to verify your account before logging in.', 'succ');
         } else {
             toast(regData.message || 'Could not complete registration.', 'err');
         }
@@ -218,7 +242,13 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
     if (btn) { btn.disabled = true; btn.textContent = 'Logging in…'; }
 
     try {
-        await window.fbSignIn(email, password);
+        const cred = await window.fbSignIn(email, password);
+        if (!cred.user.emailVerified) {
+            await window.fbSignOut();
+            setAuthState(null);
+            throw new Error('auth/email-not-verified');
+        }
+        
         closeAuthModals();
         toast('Logged in successfully!', 'succ');
     } catch (err) {
@@ -226,6 +256,8 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
         const code = err?.code || '';
         if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') {
             toast('Invalid email or password.', 'err');
+        } else if (code === 'auth/email-not-verified' || err.message === 'auth/email-not-verified') {
+            toast('Please verify your email address. Check your inbox (or spam) for the verification link.', 'err');
         } else if (code === 'auth/too-many-requests') {
             toast('Too many failed attempts. Try again later or reset your password.', 'err');
         } else if (code === 'auth/invalid-email') {
