@@ -10,7 +10,7 @@ async function refreshGhsUsdRate() {
         if (d && typeof d.ghsToUsd === 'number' && d.ghsToUsd > 0) {
             GHS_TO_USD = d.ghsToUsd;
         }
-    } catch(e) { console.error('Error fetching GHS rate', e); }
+    } catch (e) { console.error('Error fetching GHS rate', e); }
 }
 
 async function refreshGlobalRates() {
@@ -22,7 +22,7 @@ async function refreshGlobalRates() {
                 if (data.rates[cur]) GLOBAL_RATES[cur] = data.rates[cur];
             });
         }
-    } catch(e) { console.error("FX fetch err", e); }
+    } catch (e) { console.error("FX fetch err", e); }
 }
 
 refreshGhsUsdRate();
@@ -148,7 +148,7 @@ const services = {
         ],
         'Video Views': [
             { id: '9252', name: 'Video Views [Normal] [No Refill]', start: '0-2 Hrs', speed: 'Up to 500/Day', max: '1M', price: 2.10 },
-            { id: '9259', name: 'Video Views [Premium] [Refill]', start: '0-2 Hrs', speed: 'Up to 3K/Day', max: '10M', price: 1.60 }
+            { id: '9259', name: 'Video Views [Premium] [Refill]', start: '0-2 Hrs', speed: 'Up to 3K/Day', max: '10M', price: 5.10 }
         ],
         'Likes': [
             { id: '9535', name: 'Likes [Normal] [No Refill]', start: 'Instant', speed: '100K/Day', max: '100K', price: 1.20 },
